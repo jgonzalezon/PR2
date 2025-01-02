@@ -17,14 +17,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Cargar bibliotecas y datos
 
-En este apartado  cargo las librerías necesarias y cargado de los datos.
+En este apartado cargo las librerías necesarias y cargado de los datos.
 
 ```{r load-data, echo=TRUE}
 # Definir la ruta del archivo
 adult_data_path <- 'data/adult.data'
 
 # Leer el archivo adult.data como un DataFrame
-adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE)
+column_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'income')
+adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE, col.names = column_names)
 
 # Mostrar las primeras líneas del archivo para inspección
 head(adult_data)
@@ -33,3 +34,30 @@ dim(dataset)
 
 ```
 
+# Descripción del dataset Descripción del dataset.
+
+¿Por qué es importante y qué pregunta/problema pretende responder? Resume brevemente las variables que lo forman y su tamaño.
+
+El conjunto de datos adult.data contiene un conjunto Conjunto de Datos del Censo de Ingresos que proviene de la base de datos del Censo de los Estados Unidos.
+
+El objetivo principal del conjunto de datos es predecir si una persona gana más de 50,000 dólares al año en función de una serie de características demográficas y laborales. Este problema es un clásico en tareas de clasificación supervisada, y su resolución puede tener aplicaciones en:
+
+Marketing dirigido. Análisis de políticas laborales. Detección de sesgos en ingresos.
+
+La pregunta principal del conjunto de datos es la siguiente: ¿Qué factores demográficos y profesionales determinan si una persona gana más de \$50,000 al año?
+
+El dataset contiene 15 variables, que se pueden agrupar en:
+
+Demográficas:
+
+age: Edad. sex: Género. race: Raza. native_country: País de origen. marital_status: Estado civil. Educativas:
+
+education: Nivel educativo. education_num: Número asociado al nivel educativo. Laborales:
+
+workclass: Tipo de empleo. occupation: Ocupación. hours_per_week: Horas trabajadas por semana. capital_gain: Ganancia de capital. capital_loss: Pérdida de capital. Socioeconómicas:
+
+fnlwgt: Ponderación final de la muestra. relationship: Relación familiar. Variable Objetivo:
+
+income: Nivel de ingresos (\<=50K o \>50K).
+
+Tamaño del Dataset Filas: Representan individuos encuestados. Columnas: 15 variables mencionadas anteriormente.
