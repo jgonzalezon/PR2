@@ -1,0 +1,35 @@
+---
+title: 'Ciclo de vida de los datos. Práctica 2'
+author: "Francisco Javier González Ontañón y Laureano Rios Oriol"
+date: "2025-01-08"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\tableofcontents
+
+# Cargar bibliotecas y datos
+
+En este apartado  cargo las librerías necesarias y cargado de los datos.
+
+```{r load-data, echo=TRUE}
+# Definir la ruta del archivo
+adult_data_path <- 'data/adult.data'
+
+# Leer el archivo adult.data como un DataFrame
+adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE)
+
+# Mostrar las primeras líneas del archivo para inspección
+head(adult_data)
+
+dim(dataset)
+
+```
+
