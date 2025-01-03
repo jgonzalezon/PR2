@@ -20,21 +20,33 @@ knitr::opts_chunk$set(echo = TRUE)
 En este apartado cargo las librerías necesarias y cargado de los datos.
 
 ```{r load-data, echo=TRUE}
+
+required_libraries <- c('dplyr', 'caret', 'rpart', 'cluster')
+for (lib in required_libraries) {
+  if (!require(lib, character.only = TRUE)) {
+    install.packages(lib, dependencies = TRUE)
+    library(lib, character.only = TRUE)
+  }
+}
+
+
 # Definir la ruta del archivo
 adult_data_path <- 'data/adult.data'
 
 # Leer el archivo adult.data como un DataFrame
 column_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'income')
-adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE, col.names = column_names)
+adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE, col.names = column_names,na.strings = c("?", "NA", ""))
 
 # Mostrar las primeras líneas del archivo para inspección
 head(adult_data)
 
-dim(dataset)
+dim(adult_data)
 
 ```
 
-# Descripción del dataset Descripción del dataset.
+# 1. Descripción del dataset {#sec-Descripción.}
+
+El dataset es un caso de
 
 ¿Por qué es importante y qué pregunta/problema pretende responder? Resume brevemente las variables que lo forman y su tamaño.
 
@@ -48,16 +60,206 @@ La pregunta principal del conjunto de datos es la siguiente: ¿Qué factores dem
 
 El dataset contiene 15 variables, que se pueden agrupar en:
 
-Demográficas:
+**Demográficas:**
 
-age: Edad. sex: Género. race: Raza. native_country: País de origen. marital_status: Estado civil. Educativas:
+-   age: Edad.
 
-education: Nivel educativo. education_num: Número asociado al nivel educativo. Laborales:
+-   sex: Género.
 
-workclass: Tipo de empleo. occupation: Ocupación. hours_per_week: Horas trabajadas por semana. capital_gain: Ganancia de capital. capital_loss: Pérdida de capital. Socioeconómicas:
+-   race: Raza.
 
-fnlwgt: Ponderación final de la muestra. relationship: Relación familiar. Variable Objetivo:
+-   native_country: País de origen.
 
-income: Nivel de ingresos (\<=50K o \>50K).
+-   marital_status: Estado civil.
 
-Tamaño del Dataset Filas: Representan individuos encuestados. Columnas: 15 variables mencionadas anteriormente.
+**Educativas:**
+
+-   education: Nivel educativo.
+
+-   education_num: Número asociado al nivel educativo.
+
+**Laborales:**
+
+-   workclass: Tipo de empleo.
+
+-   occupation: Ocupación.
+
+-   hours_per_week: Horas trabajadas por semana.
+
+-   capital_gain: Ganancia de capital.
+
+-   capital_loss: Pérdida de capital.
+
+**Socioeconómicas:**
+
+-   fnlwgt: Ponderación final de la muestra.
+
+-   relationship: Relación familiar.
+
+**Variable Objetivo:**
+
+-   income: Nivel de ingresos (\<=50K o \>50K).
+
+# 2. Integración y selección {#sec-Integración-y-selección.}
+
+Se va a usar el dataset completo para la práctica, a continuación una tabla con todas las variables del dataset.
+
+| **Variable Name** | **Role** | **Type** | **Demographic** | **Description** | **Missing Values** |
+|:----------:|:----------:|:----------:|:----------:|:----------:|:----------:|
+| age | Feature | Integer | Age | N/A | no |
+| workclass | Feature | Categorical | Income | Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked. | yes |
+| fnlwgt | Feature | Integer |  |  | no |
+| education | Feature | Categorical | Education Level | Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool. | no |
+| education-num | Feature | Integer | Education Level |  | no |
+| marital-status | Feature | Categorical | Other | Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse. | no |
+| occupation | Feature | Categorical | Other | Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces. | yes |
+| relationship | Feature | Categorical | Other | Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried. | no |
+| race | Feature | Categorical | Race | White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black. | no |
+| sex | Feature | Binary | Sex | Female, Male. | no |
+| capital-gain | Feature | Integer |  |  | no |
+| capital-loss | Feature | Integer |  |  | no |
+| hours-per-week | Feature | Integer |  |  | no |
+| native-country | Feature | Categorical | Other | United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands. | yes |
+| income | Target | Binary | Income | \>50K, \<=50K. | no |
+
+# 3. Limpieza de datos. {#sec-limpieza-de-datos.}
+
+## 3.1 Gestión de ceros, elementos vacíos y valores perdidos
+
+Las variables que tienen datos perdidos son categóricas, con la intención de no generar sesgos, se colocará la variable unknown.
+
+```{r zeros_null_missingValues, echo=TRUE}
+
+# Identificar valores perdidos
+colSums(is.na(adult_data))
+
+adult_data <- adult_data %>% mutate(
+  workclass = ifelse(is.na(workclass), "Unknown", workclass),
+  occupation = ifelse(is.na(occupation), "Unknown", occupation),
+  native_country = ifelse(is.na(native_country), "Unknown", native_country)
+)
+```
+
+## 3.2 Conversión de tipos de datos:
+
+Se convierten
+
+```{r factoring, echo=TRUE}
+
+adult_data$workclass <- as.factor(adult_data$workclass)
+adult_data$education <- as.factor(adult_data$education)
+adult_data$marital_status <- as.factor(adult_data$marital_status)
+adult_data$occupation <- as.factor(adult_data$occupation)
+adult_data$relationship <- as.factor(adult_data$relationship)
+adult_data$race <- as.factor(adult_data$race)
+adult_data$sex <- as.factor(adult_data$sex)
+adult_data$native_country <- as.factor(adult_data$native_country)
+adult_data$income <- as.factor(adult_data$income)
+
+```
+
+# 3.3. Identificación y gestión de valores extremos
+
+```{r outliers, echo=TRUE}
+
+initial_rows <- nrow(adult_data)
+
+
+# 3.3.1. Edad (age)
+# Mantener valores realistas y eliminar valores imposibles
+adult_data <- adult_data %>% filter(age <= 100)
+
+# 3.3.2. Ponderación muestral (fnlwgt)
+# Mantener todos los valores ya que representan ponderaciones válidas
+cat("Nota: No se eliminan outliers en fnlwgt, ya que son ponderaciones válidas.\n")
+
+# 3.3.3. Años de educación (education_num)
+# Mantener valores entre 1 y 20
+adult_data <- adult_data %>% filter(education_num <= 20)
+
+# 3.3.4. Ganancia de capital (capital_gain) y Pérdida de capital (capital_loss)
+# Mantener todos los valores ya que son válidos en su contexto económico
+cat("Nota: No se eliminan outliers en capital_gain ni capital_loss, ya que representan valores económicos válidos.\n")
+
+# 3.3.5. Horas trabajadas por semana (hours_per_week)
+# Eliminar valores imposibles  > 100 horas)
+adult_data <- adult_data %>% filter(hours_per_week <= 100)
+
+# Mostrar los boxplots después de la limpieza
+par(mfrow = c(2, 3)) # Configurar para mostrar múltiples gráficos
+numeric_columns <- c('age', 'fnlwgt', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week')
+labels <- c('Age', 'Fnlwgt', 'Education Num', 'Capital Gain', 'Capital Loss', 'Hours per Week')
+for (i in 1:length(numeric_columns)) {
+  boxplot(adult_data[[numeric_columns[i]]], main = paste('Boxplot de', labels[i]), ylab = labels[i])
+}
+par(mfrow = c(1, 1)) # Restablecer la configuración
+
+# Mostrar el número de filas eliminadas
+deleted_rows <- initial_rows - nrow(adult_data)
+cat("Número de filas eliminadas debido a valores extremos:", deleted_rows, "\n")
+
+```
+
+# 3.4. Otros métodos de limpieza
+
+Eliminar las filas duplicadas.
+
+```{r outliers, echo=TRUE}
+# Identificar filas duplicadas
+duplicated_rows <- nrow(adult_data) - nrow(adult_data %>% distinct())
+cat("Número de filas duplicadas detectadas:", duplicated_rows, "\n")
+
+# Eliminar filas duplicadas
+adult_data <- adult_data %>% distinct()
+
+# Validar la limpieza
+dim(adult_data)
+summary(adult_data)
+```
+
+
+# Análisis de los datos.
+Clasificación con Árboles de Decisión
+
+Variable Objetivo Claramente Definida: La columna income es una variable categórica con dos clases: <=50K y >50K, lo que hace que el problema sea adecuado para clasificación binaria.
+Datos Mixtos: El dataset contiene tanto variables categóricas (workclass, marital_status) como numéricas (age, hours_per_week), lo cual es manejable para algoritmos de árboles de decisión.
+Interpretabilidad: Los árboles de decisión permiten interpretar fácilmente los factores más importantes que determinan si una persona gana más de $50K.
+Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como la regresión logística.
+
+
+Clustering con K-Means
+
+Identificación de Patrones Ocultos: Permite descubrir grupos de individuos con características similares (por ejemplo, patrones en ocupaciones, horas trabajadas y nivel de educación).
+Reducción de la Complejidad: Ayuda a simplificar la estructura de los datos, especialmente si se busca segmentar la población para análisis adicionales.
+Datos Mixtos: Las variables numéricas (age, hours_per_week) se pueden utilizar para el clustering, aunque puede ser necesario estandarizar los datos para evitar que las variables con mayor rango dominen el análisis.
+
+
+
+
+```{r outliers, echo=TRUE}
+# --- 4. Método Supervisado: Árbol de Decisión ---
+set.seed(123)
+train_index <- createDataPartition(adult_data$income, p = 0.7, list = FALSE)
+train_data <- adult_data[train_index, ]
+test_data <- adult_data[-train_index, ]
+
+# Entrenar el modelo
+income_model <- rpart(income ~ age + workclass + education + marital_status + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country,
+                      data = train_data, method = "class")
+
+# Evaluar el modelo
+predictions <- predict(income_model, test_data, type = "class")
+conf_matrix <- confusionMatrix(predictions, test_data$income)
+print(conf_matrix)
+
+# --- 5. Método No Supervisado: K-Means Clustering ---
+# Escalar variables numéricas para K-Means
+numeric_data <- scale(train_data[, c('age', 'fnlwgt', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week')])
+
+# Aplicar K-Means
+set.seed(123)
+kmeans_result <- kmeans(numeric_data, centers = 3)
+
+# Mostrar resultados
+table(kmeans_result$cluster)
+```
