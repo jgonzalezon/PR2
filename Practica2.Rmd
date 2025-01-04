@@ -46,8 +46,6 @@ dim(adult_data)
 
 # 1. Descripción del dataset {#sec-Descripción.}
 
-El dataset es un caso de
-
 ¿Por qué es importante y qué pregunta/problema pretende responder? Resume brevemente las variables que lo forman y su tamaño.
 
 El conjunto de datos adult.data contiene un conjunto Conjunto de Datos del Censo de Ingresos que proviene de la base de datos del Censo de los Estados Unidos.
@@ -126,7 +124,9 @@ Se va a usar el dataset completo para la práctica, a continuación una tabla co
 
 ## 3.1 Gestión de ceros, elementos vacíos y valores perdidos
 
-Las variables que tienen datos perdidos son categóricas, con la intención de no generar sesgos, se colocará la variable unknown.
+El dataset ya viene con esta limpieza hecha por los mismos autores del dataset colocando un símbolo "?" en los valores faltantes. Sin embargo la forma de proceder sería la que seguimos a continuación:
+
+Las variables que tienen datos perdidos son categóricas, con la intención de no generar sesgos, se colocará el valor "unknown". En el apartado anterior ya habíamos marcado como NA todas los valores vacíos y los convertimos
 
 ```{r zeros_null_missingValues, echo=TRUE}
 
@@ -142,7 +142,7 @@ adult_data <- adult_data %>% mutate(
 
 ## 3.2 Conversión de tipos de datos:
 
-Se convierten
+Se convierten todos las variables categoricas a "factor", esto se traduce en la conversión de las variables categóricas a números para poder ser procesados correctamente con modelos estadísticos y de machine learning.
 
 ```{r factoring, echo=TRUE}
 
@@ -155,6 +155,9 @@ adult_data$race <- as.factor(adult_data$race)
 adult_data$sex <- as.factor(adult_data$sex)
 adult_data$native_country <- as.factor(adult_data$native_country)
 adult_data$income <- as.factor(adult_data$income)
+
+
+(adult_data$native_country)
 
 ```
 
@@ -217,24 +220,15 @@ dim(adult_data)
 summary(adult_data)
 ```
 
-
 # Análisis de los datos.
-Clasificación con Árboles de Decisión
 
-Variable Objetivo Claramente Definida: La columna income es una variable categórica con dos clases: <=50K y >50K, lo que hace que el problema sea adecuado para clasificación binaria.
-Datos Mixtos: El dataset contiene tanto variables categóricas (workclass, marital_status) como numéricas (age, hours_per_week), lo cual es manejable para algoritmos de árboles de decisión.
-Interpretabilidad: Los árboles de decisión permiten interpretar fácilmente los factores más importantes que determinan si una persona gana más de $50K.
-Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como   la regresión logística.
+## Clasificación con Árboles de Decisión
 
+Variable Objetivo Claramente Definida: La columna income es una variable categórica con dos clases: \<=50K y \>50K, lo que hace que el problema sea adecuado para clasificación binaria. Datos Mixtos: El dataset contiene tanto variables categóricas (workclass, marital_status) como numéricas (age, hours_per_week), lo cual es manejable para algoritmos de árboles de decisión. Interpretabilidad: Los árboles de decisión permiten interpretar fácilmente los factores más importantes que determinan si una persona gana más de \$50K. Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como la regresión logística.
 
-Clustering con K-Means
+## **Clustering con K-Means**
 
-Identificación de Patrones Ocultos: Permite descubrir grupos de individuos con características similares (por ejemplo, patrones en ocupaciones, horas trabajadas y nivel de educación).
-Reducción de la Complejidad: Ayuda a simplificar la estructura de los datos, especialmente si se busca segmentar la población para análisis adicionales.
-Datos Mixtos: Las variables numéricas (age, hours_per_week) se pueden utilizar para el clustering, aunque puede ser necesario estandarizar los datos para evitar que las variables con mayor rango dominen el análisis.
-
-
-
+Identificación de Patrones Ocultos: Permite descubrir grupos de individuos con características similares (por ejemplo, patrones en ocupaciones, horas trabajadas y nivel de educación). Reducción de la Complejidad: Ayuda a simplificar la estructura de los datos, especialmente si se busca segmentar la población para análisis adicionales. Datos Mixtos: Las variables numéricas (age, hours_per_week) se pueden utilizar para el clustering, aunque puede ser necesario estandarizar los datos para evitar que las variables con mayor rango dominen el análisis.
 
 ```{r outliers, echo=TRUE}
 
