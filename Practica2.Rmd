@@ -21,7 +21,7 @@ En este apartado cargo las librerías necesarias y cargado de los datos.
 
 ```{r load-data, echo=TRUE}
 
-required_libraries <- c('dplyr', 'caret', 'rpart', 'cluster')
+required_libraries <- c('dplyr', 'caret', 'rpart', 'cluster', 'doParallel', 'foreach')
 for (lib in required_libraries) {
   if (!require(lib, character.only = TRUE)) {
     install.packages(lib, dependencies = TRUE)
@@ -224,7 +224,7 @@ Clasificación con Árboles de Decisión
 Variable Objetivo Claramente Definida: La columna income es una variable categórica con dos clases: <=50K y >50K, lo que hace que el problema sea adecuado para clasificación binaria.
 Datos Mixtos: El dataset contiene tanto variables categóricas (workclass, marital_status) como numéricas (age, hours_per_week), lo cual es manejable para algoritmos de árboles de decisión.
 Interpretabilidad: Los árboles de decisión permiten interpretar fácilmente los factores más importantes que determinan si una persona gana más de $50K.
-Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como la regresión logística.
+Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como   la regresión logística.
 
 
 Clustering con K-Means
@@ -237,29 +237,44 @@ Datos Mixtos: Las variables numéricas (age, hours_per_week) se pueden utilizar 
 
 
 ```{r outliers, echo=TRUE}
-# --- 4. Método Supervisado: Árbol de Decisión ---
+
+
+# Configurar procesamiento en paralelo
+num_cores <- detectCores() - 1
+cl <- makeCluster(num_cores)
+registerDoParallel(cl)
+cat("Número de núcleos utilizados:", num_cores, "\n")
+
+# --- 4. Método Supervisado: Árbol de Decisión (Paralelizado) ---
 set.seed(123)
 train_index <- createDataPartition(adult_data$income, p = 0.7, list = FALSE)
 train_data <- adult_data[train_index, ]
 test_data <- adult_data[-train_index, ]
 
-# Entrenar el modelo
-income_model <- rpart(income ~ age + workclass + education + marital_status + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country,
-                      data = train_data, method = "class")
+# Entrenar el modelo en paralelo
+income_model <- foreach(i = 1:num_cores, .combine = c, .packages = 'rpart') %dopar% {
+  rpart(income ~ age + workclass + education + marital_status + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country,
+        data = train_data, method = "class")
+}
 
 # Evaluar el modelo
-predictions <- predict(income_model, test_data, type = "class")
+predictions <- predict(income_model[[1]], test_data, type = "class")
 conf_matrix <- confusionMatrix(predictions, test_data$income)
 print(conf_matrix)
 
-# --- 5. Método No Supervisado: K-Means Clustering ---
+# --- 5. Método No Supervisado: K-Means Clustering (Paralelizado) ---
 # Escalar variables numéricas para K-Means
 numeric_data <- scale(train_data[, c('age', 'fnlwgt', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week')])
 
-# Aplicar K-Means
+# Aplicar K-Means en paralelo
 set.seed(123)
-kmeans_result <- kmeans(numeric_data, centers = 3)
+kmeans_result <- foreach(i = 1:num_cores, .combine = c, .packages = 'cluster') %dopar% {
+  kmeans(numeric_data, centers = 3)
+}
 
 # Mostrar resultados
-table(kmeans_result$cluster)
+table(kmeans_result[[1]]$cluster)
+
+# Detener el clúster paralelo
+stopCluster(cl)
 ```
