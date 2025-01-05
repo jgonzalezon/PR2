@@ -3,11 +3,23 @@ title: "Ciclo de vida de los datos. Práctica 2"
 output:
   pdf_document: default
   html_document: default
+always_allow_html: true
 date: "2025-01-04"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+```
+
+```{r}
+# Instalar y cargar tinytex
+install.packages("tinytex")
+library(tinytex)
+
+# Instalar TinyTeX
+tinytex::install_tinytex(force = TRUE)
+
 ```
 
 ## Ciclo de vida de los datos. Práctica 2
@@ -30,7 +42,7 @@ for (lib in required_libraries) {
 
 
 # Definir la ruta del archivo
-adult_data_path <- 'data/adult.data'
+adult_data_path <- "C:\\Users\\riosl\\Desktop\\adult.data"
 
 # Nombres de las columnas
 column_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'income')
