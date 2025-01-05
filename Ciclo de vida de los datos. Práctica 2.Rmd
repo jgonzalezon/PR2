@@ -22,11 +22,15 @@ tinytex::install_tinytex(force = TRUE)
 
 ```
 
-## Ciclo de vida de los datos. Práctica 2
+# Ciclo de vida de los datos. Práctica 2
 
 Autores: Francisco Javier González Ontañón y Laureano Rios Oriol
 
-# Cargar bibliotecas y datos
+#### Enlace al repositorio Git
+
+<https://github.com/fran713/PR2>
+
+## Cargar bibliotecas y datos
 
 En este apartado cargo las librerías necesarias y cargado de los datos.
 
@@ -328,8 +332,8 @@ dummy_columns <- grep("_", colnames(adult_data_encoded), value = TRUE)
 all_columns <- c(numeric_columns, dummy_columns)
 adult_data_numeric <- adult_data_encoded[, all_columns]
 
-# Verificar que todas las columnas sean numéricas
-str(adult_data_numeric)
+# Verificar que todas las columnas sean numéricas,para evitar grandes cantidades de datos dejamos el codigo como comentario
+#str(adult_data_numeric)
 
 # Normalizar los datos
 adult_data_scaled <- scale(adult_data_numeric)
@@ -341,8 +345,8 @@ kmeans_result <- kmeans(adult_data_scaled, centers = 3, nstart = 20)
 # Agregar el resultado del clustering al DataFrame original
 adult_data$cluster <- as.factor(kmeans_result$cluster)
 
-# Ver los centros de los clusters
-print(kmeans_result$centers)
+# Ver los centros de los clusters,para evitar grandes cantidades de datos dejamos el codigo como comentario
+#print(kmeans_result$centers)
 
 # Ver la cantidad de observaciones en cada cluster
 table(adult_data$cluster)
