@@ -1,0 +1,437 @@
+---
+title: "Ciclo de vida de los datos. Práctica 2"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-01-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Ciclo de vida de los datos. Práctica 2
+
+Autores: Francisco Javier González Ontañón y Laureano Rios Oriol
+
+# Cargar bibliotecas y datos
+
+En este apartado cargo las librerías necesarias y cargado de los datos.
+
+```{r load-data, echo=TRUE}
+
+required_libraries <- c('dplyr', 'caret', 'rpart', 'cluster', 'doParallel', 'foreach')
+for (lib in required_libraries) {
+  if (!require(lib, character.only = TRUE)) {
+    install.packages(lib, dependencies = TRUE)
+    library(lib, character.only = TRUE)
+  }
+}
+
+
+# Definir la ruta del archivo
+adult_data_path <- 'data/adult.data'
+
+# Nombres de las columnas
+column_names <- c('age', 'workclass', 'fnlwgt', 'education', 'education_num', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'capital_gain', 'capital_loss', 'hours_per_week', 'native_country', 'income')
+
+# Leer el archivo adult.data como un DataFrame
+adult_data <- read.csv(adult_data_path, header = FALSE, sep = ',', strip.white = TRUE, col.names = column_names, na.strings = c("?", "NA", ""))
+
+# Mostramos las primeras líneas del archivo para inspección
+print(head(adult_data))
+
+# Mostramos las dimensiones del DataFrame
+print(dim(adult_data))
+
+```
+
+# 1. Descripción del dataset {#sec-Descripción.}
+
+¿Por qué es importante y qué pregunta/problema pretende responder? Resume brevemente las variables que lo forman y su tamaño.
+
+El conjunto de datos adult.data contiene un conjunto Conjunto de Datos del Censo de Ingresos que proviene de la base de datos del Censo de los Estados Unidos.
+
+El objetivo principal del conjunto de datos es predecir si una persona gana más de 50,000 dólares al año en función de una serie de características demográficas y laborales. Este problema es un clásico en tareas de clasificación supervisada, y su resolución puede tener aplicaciones en:
+
+Marketing dirigido. Análisis de políticas laborales. Detección de sesgos en ingresos.
+
+La pregunta principal del conjunto de datos es la siguiente: ¿Qué factores demográficos y profesionales determinan si una persona gana más de \$50,000 al año?
+
+El dataset contiene 15 variables, que se pueden agrupar en:
+
+**Demográficas:**
+
+-   age: Edad.
+
+-   sex: Género.
+
+-   race: Raza.
+
+-   native_country: País de origen.
+
+-   marital_status: Estado civil.
+
+**Educativas:**
+
+-   education: Nivel educativo.
+
+-   education_num: Número asociado al nivel educativo.
+
+**Laborales:**
+
+-   workclass: Tipo de empleo.
+
+-   occupation: Ocupación.
+
+-   hours_per_week: Horas trabajadas por semana.
+
+-   capital_gain: Ganancia de capital.
+
+-   capital_loss: Pérdida de capital.
+
+**Socioeconómicas:**
+
+-   fnlwgt: Ponderación final de la muestra.
+
+-   relationship: Relación familiar.
+
+**Variable Objetivo:**
+
+-   income: Nivel de ingresos (\<=50K o \>50K).
+
+# 2. Integración y selección {#sec-Integración-y-selección.}
+
+Se va a usar el dataset completo para la práctica, a continuación una tabla con todas las variables del dataset.
+
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| **Variable Name** | **Role** | **Type**    | **Demographic** | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                 | **Missing Values** |
++:=================:+:========:+:===========:+:===============:+:===============================================================================================================================================================================================================================================================================================================================================================================================================================:+:==================:+
+| age               | Feature  | Integer     | Age             | N/A                                                                                                                                                                                                                                                                                                                                                                                                                             | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| workclass         | Feature  | Categorical | Income          | Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.                                                                                                                                                                                                                                                                                                                          | yes                |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| fnlwgt            | Feature  | Integer     |                 |                                                                                                                                                                                                                                                                                                                                                                                                                                 | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| education         | Feature  | Categorical | Education Level | Bachelors, Some-college, 11th, HS-grad, Prof-school, Assoc-acdm, Assoc-voc, 9th, 7th-8th, 12th, Masters, 1st-4th, 10th, Doctorate, 5th-6th, Preschool.                                                                                                                                                                                                                                                                          | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| education-num     | Feature  | Integer     | Education Level |                                                                                                                                                                                                                                                                                                                                                                                                                                 | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| marital-status    | Feature  | Categorical | Other           | Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.                                                                                                                                                                                                                                                                                                                      | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| occupation        | Feature  | Categorical | Other           | Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.                                                                                                                                                                                                       | yes                |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| relationship      | Feature  | Categorical | Other           | Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.                                                                                                                                                                                                                                                                                                                                                             | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| race              | Feature  | Categorical | Race            | White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.                                                                                                                                                                                                                                                                                                                                                                    | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| sex               | Feature  | Binary      | Sex             | Female, Male.                                                                                                                                                                                                                                                                                                                                                                                                                   | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| capital-gain      | Feature  | Integer     |                 |                                                                                                                                                                                                                                                                                                                                                                                                                                 | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| capital-loss      | Feature  | Integer     |                 |                                                                                                                                                                                                                                                                                                                                                                                                                                 | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| hours-per-week    | Feature  | Integer     |                 |                                                                                                                                                                                                                                                                                                                                                                                                                                 | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| native-country    | Feature  | Categorical | Other           | United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands. | yes                |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+| income            | Target   | Binary      | Income          | \>50K, \<=50K.                                                                                                                                                                                                                                                                                                                                                                                                                  | no                 |
++-------------------+----------+-------------+-----------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+
+
+# 3. Limpieza de datos. {#sec-limpieza-de-datos.}
+
+## 3.1 Gestión de ceros, elementos vacíos y valores perdidos
+
+El dataset ya viene con esta limpieza hecha por los mismos autores del dataset colocando un símbolo "?" en los valores faltantes. Sin embargo la forma de proceder sería la que seguimos a continuación:
+
+Las variables que tienen datos perdidos son categóricas, con la intención de no generar sesgos, se colocará el valor "unknown". En el apartado anterior ya habíamos marcado como NA todas los valores vacíos y los convertimos
+
+```{r}
+# Identificar valores perdidos
+colSums(is.na(adult_data))
+```
+
+```{r}
+adult_data <- adult_data %>% mutate(
+  workclass = ifelse(is.na(workclass), "Unknown", workclass),
+  occupation = ifelse(is.na(occupation), "Unknown", occupation),
+  native_country = ifelse(is.na(native_country), "Unknown", native_country)
+)
+```
+
+```{r}
+colSums(is.na(adult_data))
+```
+
+```{r}
+# Ver los tipos de datos de cada columna
+sapply(adult_data, class)
+```
+
+## 3.2 Conversión de tipos de datos:
+
+Se convierten todos las variables categoricas a "factor", esto se traduce en la conversión de las variables categóricas a números para poder ser procesados correctamente con modelos estadísticos y de machine learning.
+
+```{r}
+#Transformamos las variables categoricas a factor
+adult_data$workclass <- as.factor(adult_data$workclass)
+adult_data$education <- as.factor(adult_data$education)
+adult_data$marital_status <- as.factor(adult_data$marital_status)
+adult_data$occupation <- as.factor(adult_data$occupation)
+adult_data$relationship <- as.factor(adult_data$relationship)
+adult_data$race <- as.factor(adult_data$race)
+adult_data$sex <- as.factor(adult_data$sex)
+adult_data$native_country <- as.factor(adult_data$native_country)
+adult_data$income <- as.factor(adult_data$income)
+```
+
+# 3.3. Identificación y gestión de valores extremos
+
+```{r}
+initial_rows <- nrow(adult_data)
+```
+
+```{r}
+# 3.3.1. Edad (age)
+# Mantener valores realistas y eliminar valores imposibles
+adult_data <- adult_data %>% filter(age <= 100)
+
+# 3.3.2. Ponderación muestral (fnlwgt)
+# Mantener todos los valores ya que representan ponderaciones válidas
+cat("Nota: No se eliminan outliers en fnlwgt, ya que son ponderaciones válidas.\n")
+
+# 3.3.3. Años de educación (education_num)
+# Mantener valores entre 1 y 20
+adult_data <- adult_data %>% filter(education_num <= 20)
+
+# 3.3.4. Ganancia de capital (capital_gain) y Pérdida de capital (capital_loss)
+# Mantener todos los valores ya que son válidos en su contexto económico
+cat("Nota: No se eliminan outliers en capital_gain ni capital_loss, ya que representan valores económicos válidos.\n")
+
+# 3.3.5. Horas trabajadas por semana (hours_per_week)
+# Eliminar valores imposibles  > 100 horas)
+adult_data <- adult_data %>% filter(hours_per_week <= 100)
+```
+
+```{r}
+# Mostrar los boxplots después de la limpieza
+par(mfrow = c(2, 3)) # Configurar para mostrar múltiples gráficos
+numeric_columns <- c('age', 'fnlwgt', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week')
+labels <- c('Age', 'Fnlwgt', 'Education Num', 'Capital Gain', 'Capital Loss', 'Hours per Week')
+for (i in 1:length(numeric_columns)) {
+  boxplot(adult_data[[numeric_columns[i]]], main = paste('Boxplot de', labels[i]), ylab = labels[i])
+}
+par(mfrow = c(1, 1)) # Restablecer la configuración
+
+# Mostrar el número de filas eliminadas
+deleted_rows <- initial_rows - nrow(adult_data)
+cat("Número de filas eliminadas debido a valores extremos:", deleted_rows, "\n")
+
+```
+
+# 3.4. Otros métodos de limpieza
+
+Eliminar las filas duplicadas.
+
+```{r}
+# Identificar filas duplicadas
+duplicated_rows <- nrow(adult_data) - nrow(adult_data %>% distinct())
+cat("Número de filas duplicadas detectadas:", duplicated_rows, "\n")
+
+# Eliminar filas duplicadas
+adult_data <- adult_data %>% distinct()
+
+# Validar la limpieza
+dim(adult_data)
+summary(adult_data)
+```
+
+# Análisis de los datos.
+
+## Clasificación con Árboles de Decisión
+
+Variable Objetivo Claramente Definida: La columna income es una variable categórica con dos clases: \<=50K y \>50K, lo que hace que el problema sea adecuado para clasificación binaria. Datos Mixtos: El dataset contiene tanto variables categóricas (workclass, marital_status) como numéricas (age, hours_per_week), lo cual es manejable para algoritmos de árboles de decisión. Interpretabilidad: Los árboles de decisión permiten interpretar fácilmente los factores más importantes que determinan si una persona gana más de \$50K. Robustez ante Datos Faltantes y Outliers: Los árboles pueden manejar valores perdidos (aunque ya los gestionamos) y son menos sensibles a valores extremos que otros métodos, como la regresión logística.
+
+```{r}
+# --- 4. Método Supervisado: Árbol de Decisión ---
+set.seed(123)
+train_index <- createDataPartition(adult_data$income, p = 0.7, list = FALSE)
+train_data <- adult_data[train_index, ]
+test_data <- adult_data[-train_index, ]
+
+# Entrenar el modelo
+income_model <- rpart(income ~ age + workclass + education + marital_status + occupation + relationship + race + sex + capital_gain + capital_loss + hours_per_week + native_country,
+                      data = train_data, method = "class")
+
+# Evaluar el modelo
+predictions <- predict(income_model, test_data, type = "class")
+conf_matrix <- confusionMatrix(predictions, test_data$income)
+print(conf_matrix)
+
+# Calcular precisión
+accuracy <- sum(diag(conf_matrix$table)) / sum(conf_matrix$table)
+cat("Precisión del modelo:", accuracy, "\n")
+
+```
+
+```{r}
+install.packages("rpart.plot")
+library(rpart.plot)
+
+rpart.plot(income_model)
+```
+
+Conclusiones:
+
+El modelo es bastante preciso (84.44%) y supera significativamente el No Information Rate.Logra identificar bien los verdaderos positivos.Lo que podemos observar de este modelo es que aquellos que tienen un nivel de estudio mas alto son lo que en general tienen un salario por encima de 50K.
+
+## **Clustering con K-Means**
+
+Identificación de Patrones Ocultos: Permite descubrir grupos de individuos con características similares (por ejemplo, patrones en ocupaciones, horas trabajadas y nivel de educación).
+
+Reducción de la Complejidad: Ayuda a simplificar la estructura de los datos, especialmente si se busca segmentar la población para análisis adicionales.
+
+Datos Mixtos: Las variables numéricas (age, hours_per_week) se pueden utilizar para el clustering, aunque puede ser necesario estandarizar los datos para evitar que las variables con mayor rango dominen el análisis.
+
+```{r}
+# Instalar y cargar los paquetes necesarios
+install.packages("cluster")
+install.packages("ggplot2")
+library(cluster)
+library(ggplot2)
+```
+
+```{r}
+install.packages("fastDummies")
+library(fastDummies)
+```
+
+```{r}
+# Codificar las variables categóricas usando fastDummies
+adult_data_encoded <- dummy_cols(adult_data, select_columns = c('workclass', 'education', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'native_country'), remove_first_dummy = TRUE, remove_selected_columns = TRUE)
+
+# Seleccionar todas las columnas numéricas y codificadas para el clustering
+numeric_columns <- c('age', 'fnlwgt', 'education_num', 'capital_gain', 'capital_loss', 'hours_per_week')
+dummy_columns <- grep("_", colnames(adult_data_encoded), value = TRUE)
+all_columns <- c(numeric_columns, dummy_columns)
+adult_data_numeric <- adult_data_encoded[, all_columns]
+
+# Verificar que todas las columnas sean numéricas
+str(adult_data_numeric)
+
+# Normalizar los datos
+adult_data_scaled <- scale(adult_data_numeric)
+
+# Aplicar K-means clustering
+set.seed(123)  # Fijar semilla para reproducibilidad
+kmeans_result <- kmeans(adult_data_scaled, centers = 3, nstart = 20)
+
+# Agregar el resultado del clustering al DataFrame original
+adult_data$cluster <- as.factor(kmeans_result$cluster)
+
+# Ver los centros de los clusters
+print(kmeans_result$centers)
+
+# Ver la cantidad de observaciones en cada cluster
+table(adult_data$cluster)
+
+# Crear un gráfico de dispersión de dos variables, coloreado por cluster
+ggplot(adult_data, aes(x = age, y = hours_per_week, color = cluster)) +
+  geom_point(alpha = 0.5) +
+  labs(title = "Clustering K-means de Adult Data", x = "Edad", y = "Horas por Semana")
+```
+
+```{r}
+install.packages("plotly")
+library(plotly)
+```
+
+```{r}
+# Filtrar los datos para income <= 50K
+data_income_low <- subset(adult_data, income == "<=50K")
+
+# Crear el gráfico de dispersión en 3D para income <= 50K
+plot_low_income <- plot_ly(data_income_low, x = ~age, y = ~hours_per_week, z = ~education_num, color = ~cluster, colors = c('red', 'blue', 'green')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Edad'),
+                      yaxis = list(title = 'Horas por Semana'),
+                      zaxis = list(title = 'Nivel Educativo')),
+         title = 'Clustering K-means para Income <= 50K')
+
+# Filtrar los datos para income > 50K
+data_income_high <- subset(adult_data, income == ">50K")
+
+# Crear el gráfico de dispersión en 3D para income > 50K
+plot_high_income <- plot_ly(data_income_high, x = ~age, y = ~hours_per_week, z = ~education_num, color = ~cluster, colors = c('red', 'blue', 'green')) %>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'Edad'),
+                      yaxis = list(title = 'Horas por Semana'),
+                      zaxis = list(title = 'Nivel Educativo')),
+         title = 'Clustering K-means para Income > 50K')
+
+# Mostrar los gráficos
+plot_low_income
+plot_high_income
+
+```
+
+Conclusiones:
+
+El tamaño de cada cluster nos da una idea de la distribución de los datos:
+
+-   **Cluster 1**: 9064 observaciones. Agrupa a personas con mayores niveles de educación y roles profesionales más estables o de mayor ingreso.
+
+-   **Cluster 2**: 1843 observaciones. Incluye a personas con menor estabilidad laboral o niveles de educación más bajos, posiblemente en situaciones de empleo menos consistentes.Relacionado con la edad ,en este grupo se encuentra gran cantidad de personas mayores a 60 años.
+
+-   **Cluster 3**: 21654 observaciones. Representa una gran parte de la población en roles de trabajo más típicos, con educación y ganancias en línea con la media o ligeramente por debajo del promedio.
+
+## **Prueba por contraste de hipotesis**
+
+Mediante una prueba por contraste de hipotesis podemos determinar si hay diferencias significativas entre grupos o si una observación específica es significativa en este análisis.
+
+Dado que estamos comparando más de dos grupos (clusters), una prueba ANOVA (análisis de varianza) sería lo mas apropiado.
+
+Definicion de hipotesis: evaluamos si hay una diferencia significativa en las edades (age) entre los clusters:
+
+-   **Hipótesis nula (H0)**: No hay diferencia en las edades entre los clusters.
+
+-   **Hipótesis alternativa (H1)**: Hay una diferencia en las edades entre los clusters.
+
+```{r}
+install.packages("car")
+library(car)
+```
+
+```{r}
+# Realizamos la prueba ANOVA
+anova_result <- aov(age ~ cluster, data = adult_data)
+
+# Imprimimos de los resultados de ANOVA
+summary(anova_result)
+```
+
+Conclusiones: El valor p (Pr(\>F)) es menor que 0.05, por lo que rechazamos la hipótesis nula y concluimos que hay diferencias significativas en las edades entre los clusters.
+
+```{r}
+# Realizamos la prueba de Tukey
+tukey_result <- TukeyHSD(anova_result)
+
+# Imprimimos los resultados de la prueba de Tukey
+print(tukey_result)
+```
+
+Conclusiones: Hay una diferencia significativa en las edades entre el Cluster 3 y el Cluster 1. El intervalo de confianza no incluye 0, y el valor p es menor que 0.05. Esto sugiere que las edades en el Cluster 3 son significativamente menores que en el Cluster1.
+
+También hay una diferencia significativa en las edades entre el Cluster 3 y el Cluster 2. El intervalo de confianza no incluye 0, y el valor p es menor que 0.05. Esto sugiere que las edades en el Cluster 3 son significativamente menores que en el Cluster 2.
+
++------------------------------------+----------------------------------------------------------------+
+| Contribuciones                     | Firma                                                          |
++====================================+================================================================+
+| ###### Investigación previa        | ###### Francisco Javier González Ontañón y Laureano Rios Oriol |
++------------------------------------+----------------------------------------------------------------+
+| ###### Redacción de las respuestas | ###### Francisco Javier González Ontañón y Laureano Rios Oriol |
++------------------------------------+----------------------------------------------------------------+
+| ###### Desarrollo del código       | ###### Francisco Javier González Ontañón y Laureano Rios Oriol |
++------------------------------------+----------------------------------------------------------------+
+| ###### Participación en el vídeo   | ###### Francisco Javier González Ontañón y Laureano Rios Oriol |
++------------------------------------+----------------------------------------------------------------+
